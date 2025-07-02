@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ group.name }} - 自分の過去のメモ一覧</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            margin-top: 50px;
+            margin-bottom: 50px;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #28a745; /* 緑色 */
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .memo-item {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        .memo-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center; /* 中央揃え */
+            margin-bottom: 10px;
+        }
+        .memo-title {
+            font-size: 1.25em;
+            font-weight: bold;
+            color: #343a40;
+            margin-bottom: 0;
+            flex-grow: 1; 
+            line-height: 1.3; 
+        }
+        .memo-week-date { /* 週の表示スタイル */
+            font-size: 0.9em;
+            color: #6c757d;
+            flex-shrink: 0; /* 縮まない */
+            margin-left: 15px;
+        }
+        .memo-content-snippet {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 10px;
+            max-height: 4.5em; /* 3行程度表示 */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3; 
+            -webkit-box-orient: vertical;
+            white-space: normal; 
+        }
+        .memo-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px; 
+            justify-content: flex-end;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>{{ group.name }} - 自分の過去のメモ一覧</h2>
+
+        {% if messages %}
+            <div class="messages mb-3">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {# リーダー設定セクションは削除 #}
+
+        <div class="mb-4 d-flex justify-content-between align-items-center">
+            <a href="{% url 'group_memo_create' group.id %}" class="btn btn-primary">今週のメモを作成・編集</a> {# ★ボタン名変更 #}
+            <a href="{% url 'group_detail' group.id %}" class="btn btn-outline-secondary">グループホームに戻る</a>
+        </div>
+
+        {% if memos %} {# ★memos_with_progress から memos に変更 #}
+            <div id="memoList">
+                {% for memo in memos %} {# ★item.memo から memo に変更 #}
+                    <div class="memo-item">
+                        <div class="memo-item-header">
+                            <h5 class="memo-title">{{ memo.talking_points|truncatechars:50 }}</h5>{# talking_pointsをタイトルとして使用 #}
+                            <span class="memo-week-date">{{ memo.week_start_date|date:"Y/m/d" }} (週)</span>{# 週の開始日を表示 #}
+                        </div>
+                        <p class="memo-content-snippet">{{ memo.reasons_background|truncatechars:150|default:"理由・背景なし" }}</p>
+                        
+                        {# 進捗バーは削除 #}
+
+                        <div class="memo-actions">
+                            <a href="{% url 'group_memo_detail' group.id memo.pk %}" class="btn btn-info btn-sm">詳細</a>
+                            <a href="{% url 'group_memo_update' group.id memo.pk %}" class="btn btn-warning btn-sm">編集</a>
+                            <form action="{% url 'group_memo_delete' group.id memo.pk %}" method="post" class="d-inline delete-form">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-sm">削除</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-center text-muted">まだ作成したメモはありません。</p>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // CSRFトークンを取得する関数
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrf_token = getCookie('csrftoken');
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // リーダー用: 週次メモの必須/任意を切り替えるトグル (このテンプレートからは削除されるが、念のため)
+            const toggleMemoRequired = document.getElementById('toggleMemoRequired');
+            if (toggleMemoRequired) {
+                toggleMemoRequired.addEventListener('change', function() {
+                    const settingsId = this.dataset.settingsId;
+                    const groupId = this.dataset.groupId;
+                    const isRequired = this.checked;
+
+                    fetch(`/groups/${groupId}/memo-settings/${settingsId}/toggle-required/`, { 
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrf_token,
+                            'X-Requested-With': 'XMLHttpRequest', 
+                            'Content-Type': 'application/json', 
+                        },
+                        body: JSON.stringify({ is_required_this_week: isRequired }),
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            console.error('Memo settings toggle failed:', response.status, response.statusText);
+                            return response.text().then(text => {
+                                console.error('Memo settings toggle error body:', text);
+                                throw new Error(`設定の更新に失敗しました。サーバー応答: ${response.status} ${response.statusText}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Memo settings toggle success:', data);
+                        window.location.reload(); 
+                    })
+                    .catch(error => {
+                        console.error('Memo settings toggle error:', error);
+                        alert('メモ設定の更新中にエラーが発生しました。\n' + error.message);
+                        this.checked = !isRequired; 
+                    });
+                });
+            }
+
+
+            // 削除ボタンの確認ダイアログ
+            document.querySelectorAll('.delete-form').forEach(form => {
+                form.addEventListener('submit', function(event) {
+                    if (!confirm('本当にこのメモを削除しますか？')) {
+                        event.preventDefault();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

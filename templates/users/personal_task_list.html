@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人タスク一覧</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            margin-top: 50px;
+            margin-bottom: 50px;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .task-item {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        .task-item.completed {
+            background-color: #e9f7ef; /* 薄い緑色 */
+            border-color: #c3e6cb;
+            text-decoration: line-through;
+            color: #6c757d;
+        }
+        .task-info {
+            flex-grow: 1;
+        }
+        .task-info h5 {
+            margin-bottom: 5px;
+            color: #343a40;
+        }
+        .task-info p {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        .task-actions {
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .progress-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .progress-label {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>個人タスク一覧</h2>
+
+        {% if messages %}
+            <div class="messages mb-3">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="progress-section">
+            <div class="progress-label">完了タスク進捗</div>
+            <div class="progress" role="progressbar" aria-label="Task progress" aria-valuenow="{{ completed_percentage }}" aria-valuemin="0" aria-valuemax="100" style="height: 25px;">
+                <div class="progress-bar bg-success" style="width: {{ completed_percentage }}%;">
+                    {{ completed_percentage }}%
+                </div>
+            </div>
+            <div class="mt-2 text-muted">
+                {{ completed_tasks_count }} / {{ total_tasks_count }} タスク完了
+            </div>
+        </div>
+
+        <div class="mb-4 d-flex justify-content-between align-items-center">
+            <a href="{% url 'personal_task_create' %}" class="btn btn-primary">新しいタスクを作成</a>
+            <a href="{% url 'home' %}" class="btn btn-outline-secondary">ホームに戻る</a>
+        </div>
+
+        {% if tasks %}
+            <div id="taskList">
+                {% for task in tasks %}
+                    <div class="task-item {% if task.completed %}completed{% endif %}">
+                        <div class="form-check me-3">
+                            <input class="form-check-input task-checkbox" type="checkbox" id="task-{{ task.pk }}" {% if task.completed %}checked{% endif %} data-task-id="{{ task.pk }}">
+                            <label class="form-check-label" for="task-{{ task.pk }}"></label>
+                        </div>
+                        <div class="task-info">
+                            <h5 class="mb-1">{{ task.title }}</h5>
+                            <p class="mb-1 text-truncate">{{ task.description }}</p>
+                            {% if task.due_date %}
+                                <p class="mb-0 text-muted">期限: {{ task.due_date|date:"Y/m/d" }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="task-actions">
+                            <a href="{% url 'personal_task_detail' task.pk %}" class="btn btn-info btn-sm">詳細</a>
+                            <a href="{% url 'personal_task_update' task.pk %}" class="btn btn-warning btn-sm">編集</a>
+                            <form action="{% url 'personal_task_delete' task.pk %}" method="post" class="d-inline delete-form">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-sm">削除</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-center text-muted">まだ個人タスクはありません。</p>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // CSRFトークンを取得する関数
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrf_token = getCookie('csrftoken');
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // タスク完了チェックボックスのイベントリスナー
+            document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const taskId = this.dataset.taskId;
+                    const isCompleted = this.checked;
+                    const taskItem = this.closest('.task-item');
+
+                    // ★修正点: URLから '/users' を削除
+                    fetch(`/tasks/${taskId}/toggle-complete/`, { 
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrf_token,
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ completed: isCompleted }), 
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            // エラーレスポンスの詳細をコンソールに出力
+                            console.error('Task toggle failed - Network response not ok:', response.status, response.statusText);
+                            return response.text().then(text => {
+                                console.error('Task toggle error response body:', text);
+                                throw new Error(`タスク完了ステータスの更新に失敗しました。サーバー応答: ${response.status} ${response.statusText}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Task toggle success:', data);
+                        if (data.completed) {
+                            taskItem.classList.add('completed');
+                        } else {
+                            taskItem.classList.remove('completed');
+                        }
+                        // プログレスバーを更新するためにページをリロード
+                        window.location.reload(); 
+                    })
+                    .catch(error => {
+                        console.error('Task toggle error:', error);
+                        alert('タスクの完了ステータス更新中にエラーが発生しました。\n' + error.message);
+                        // エラー時はチェックボックスの状態を元に戻す
+                        this.checked = !isCompleted;
+                    });
+                });
+            });
+
+            // 削除ボタンの確認ダイアログ
+            document.querySelectorAll('.delete-form').forEach(form => {
+                form.addEventListener('submit', function(event) {
+                    if (!confirm('本当にこのタスクを削除しますか？')) {
+                        event.preventDefault();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

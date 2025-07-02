@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メモ詳細: {{ memo.talking_points|truncatechars:30 }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            margin-top: 50px;
+            margin-bottom: 50px;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #28a745; /* 緑色 */
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .memo-detail-card {
+            border: none;
+            box-shadow: none;
+        }
+        .memo-detail-card .card-body {
+            padding: 0;
+        }
+        .list-group-item strong {
+            color: #343a40;
+            width: 150px; /* ラベルの幅を固定 */
+            flex-shrink: 0;
+        }
+        .list-group-item span, .list-group-item p {
+            flex-grow: 1;
+            color: #6c757d;
+            margin-left: 20px;
+            word-break: break-word;
+        }
+        .assignment-status-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+        }
+        .assignment-status-list li {
+            background-color: #f1f3f5;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95em;
+        }
+        .badge-status-completed {
+            background-color: #28a745; /* 緑 */
+            color: white;
+            font-size: 0.8em;
+            padding: 0.3em 0.6em;
+            border-radius: 0.25em;
+        }
+        .badge-status-pending {
+            background-color: #ffc107; /* 黄 */
+            color: #212529;
+            font-size: 0.8em;
+            padding: 0.3em 0.6em;
+            border-radius: 0.25em;
+        }
+        .btn-group-bottom {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+        .btn-group-bottom .btn {
+            flex-grow: 1;
+            max-width: 150px;
+        }
+        .group-info-header {
+            background-color: #e9ecef;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #495057;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>グループメモ詳細</h2>
+
+        {% if messages %}
+            <div class="messages mb-3">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="group-info-header">
+            グループ: <strong>{{ group.name }}</strong>
+        </div>
+
+        <div class="card memo-detail-card mb-4">
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex align-items-baseline">
+                        <strong>対象週:</strong>
+                        <span>{{ memo.week_start_date|date:"Y/m/d" }} (週)</span>
+                    </li>
+                    {% if memo.weekly_goal %}
+                    <li class="list-group-item d-flex align-items-baseline">
+                        <strong>週間目標:</strong>
+                        <span>{{ memo.weekly_goal.title }} - {{ memo.weekly_goal.description|truncatechars:50 }}</span>
+                    </li>
+                    {% endif %}
+                    <li class="list-group-item d-flex align-items-baseline">
+                        <strong>話すポイント(結論):</strong>
+                        <p class="mb-0">{{ memo.talking_points|linebreaksbr|default:"未設定" }}</p>
+                    </li>
+                    <li class="list-group-item d-flex align-items-baseline">
+                        <strong>理由・背景:</strong>
+                        <p class="mb-0">{{ memo.reasons_background|linebreaksbr|default:"未設定" }}</p>
+                    </li>
+                    <li class="list-group-item d-flex align-items-baseline">
+                        <strong>具体例・エピソード:</strong>
+                        <p class="mb-0">{{ memo.examples_episodes|linebreaksbr|default:"未設定" }}</p>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>作成者:</strong>
+                        <span>{{ memo.created_by.username }}</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>作成日時:</strong>
+                        <span>{{ memo.created_at|date:"Y/m/d H:i" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>最終更新:</strong>
+                        <span>{{ memo.updated_at|date:"Y/m/d H:i" }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group-bottom">
+            <a href="{% url 'group_memo_list' group.id %}" class="btn btn-secondary">メモ一覧に戻る</a>
+            <a href="{% url 'group_memo_update' group.id memo.pk %}" class="btn btn-warning">編集</a>
+            <form action="{% url 'group_memo_delete' group.id memo.pk %}" method="post" class="d-inline delete-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">削除</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 削除ボタンの確認ダイアログ
+            document.querySelectorAll('.delete-form').forEach(form => {
+                form.addEventListener('submit', function(event) {
+                    if (!confirm('本当にこのメモを削除しますか？')) {
+                        event.preventDefault();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

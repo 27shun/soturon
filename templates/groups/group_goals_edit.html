@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ group.name }} の目標設定</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .container {
+            max-width: 700px;
+            margin-top: 50px;
+            margin-bottom: 50px;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .section-header {
+            background-color: #e9ecef;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .form-section {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            background-color: #fefefe;
+        }
+
+        .form-section h3 {
+            color: #343a40;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .form-section p {
+            margin-bottom: 15px;
+        }
+        .form-section p label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-section p input,
+        .form-section p textarea,
+        .form-section p select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        .form-section p ul.errorlist {
+            color: #dc3545;
+            list-style: none;
+            padding-left: 0;
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+        .form-section p ul.errorlist li {
+            margin-bottom: 0;
+        }
+
+        .list-group-item {
+            background-color: #f1f3f5;
+            border-color: #e0e0e0;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            font-size: 0.95em;
+        }
+
+        .list-group-item strong {
+            color: #0056b3;
+        }
+
+        .btn-bottom-group {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn-bottom-group .btn {
+            flex-grow: 1;
+            max-width: 200px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>{{ group.name }} の目標設定</h2>
+
+        {% if messages %}
+        <div class="messages mb-3">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="form-section">
+            <h3>目標の編集</h3>
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary w-100">目標を保存</button>
+            </form>
+        </div>
+
+        <div class="form-section">
+            <h3>過去の週間目標</h3>
+            {% if weekly_goals %}
+            <ul class="list-group">
+                {% for goal in weekly_goals %}
+                <li class="list-group-item">
+                    <strong>{{ goal.week_start_date|date:"Y/m/d" }} (週):</strong>
+                    <p class="mb-0">{{ goal.title }}</p>
+                    <p class="mb-0 text-muted">{{ goal.description }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-center text-muted">まだ週間目標は設定されていません。</p>
+            {% endif %}
+        </div>
+
+        <div class="btn-bottom-group">
+            <a href="{% url 'group_detail' group.id %}" class="btn btn-outline-secondary">グループ詳細に戻る</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>お題に回答</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container-card {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        h2 {
+            color: #343a40;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .topic-display {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 1.1rem;
+            color: #495057;
+            font-weight: bold;
+        }
+        form div {
+            margin-bottom: 15px;
+        }
+        label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+            color: #495057;
+        }
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        textarea {
+            resize: vertical;
+        }
+        button[type="submit"] {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        .return-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .return-link:hover {
+            text-decoration: underline;
+        }
+        #timerDisplay {
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #dc3545; /* 赤色 */
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-card">
+        <h2>{{ session.group.name }} アイスブレイク 回答</h2>
+        <div class="topic-display">
+            お題: <span id="currentTopic">{{ topic.content }}</span>
+        </div>
+
+        <div id="timerDisplay"></div>
+
+        <form method="post" id="answerForm">
+            {% csrf_token %}
+            <div>
+                <label for="id_choice">選択肢:</label><br>
+                <input type="text" name="choice" id="id_choice" value="{{ answer.choice }}">
+            </div>
+            <div>
+                <label for="id_text">自由記述:</label><br>
+                <textarea name="text" id="id_text" rows="4" cols="40">{{ answer.text }}</textarea>
+            </div>
+            <button type="submit" id="submitAnswerBtn">回答する</button>
+        </form>
+
+        <p><a href="{% url 'group_detail' group_id=session.group.id %}" class="return-link">グループホームに戻る</a></p>
+    </div>
+
+    <script>
+        // CSRFトークンを取得する関数
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrf_token = getCookie('csrftoken');
+
+        const sessionId = "{{ session.id }}";
+        const getStatusUrl = "{% url 'get_session_status' session_id=session.id %}";
+        const waitPageUrl = "{% url 'wait' session_id=session.id %}"; 
+        const presentPageUrl = "{% url 'present' session_id=session.id %}";
+
+        const timerDisplay = document.getElementById('timerDisplay');
+        let countdownInterval; 
+
+        function updateTimerDisplay(remainingSeconds) {
+            if (remainingSeconds < 0) {
+                timerDisplay.innerText = '時間切れ';
+                return;
+            }
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            timerDisplay.innerText = `残り時間: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Ajaxでセッションステータスをポーリングする関数
+        function pollSessionStatus() {
+            fetch(getStatusUrl, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    console.error('Polling Network response was not ok:', response.status, response.statusText);
+                    return response.text().then(text => { 
+                        console.error('Polling Error response body:', text);
+                        throw new Error(`Polling Network response was not ok: ${response.status} ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Polling Session Status Data:', data);
+
+                // タイマーの更新
+                updateTimerDisplay(data.remaining_time_seconds);
+                if (countdownInterval) {
+                    clearInterval(countdownInterval); 
+                }
+                let currentRemainingTime = data.remaining_time_seconds;
+                countdownInterval = setInterval(() => {
+                    currentRemainingTime--;
+                    updateTimerDisplay(currentRemainingTime);
+                    if (currentRemainingTime <= 0) {
+                        clearInterval(countdownInterval);
+                    }
+                }, 1000);
+
+
+                // ★セッションのステータスが 'presenting' に変わった場合、または全員が回答済みの場合に 'present' ページにリダイレクト
+                const currentUserAnswered = data.answered_status.find(
+                    member => member.id === data.current_user_id
+                );
+                
+                if (data.status === 'presenting' || (data.all_answered && currentUserAnswered && currentUserAnswered.answered)) {
+                    console.log('Polling: Session status changed to presenting OR all answered. Redirecting to present page...');
+                    clearInterval(pollingInterval); 
+                    clearInterval(countdownInterval); 
+                    window.location.href = presentPageUrl; // ★presentPageUrlへ
+                    return; 
+                }
+                
+                // お題が更新された場合（司会者がお題を進めた場合など）
+                if (document.getElementById('currentTopic').innerText !== data.topic_content) {
+                    document.getElementById('currentTopic').innerText = data.topic_content;
+                }
+
+                // 回答済みであれば、フォームを無効にするなどのUI変更
+                if (currentUserAnswered && currentUserAnswered.answered) {
+                    document.getElementById('id_choice').disabled = true;
+                    document.getElementById('id_text').disabled = true;
+                    document.getElementById('submitAnswerBtn').disabled = true;
+                    document.getElementById('submitAnswerBtn').innerText = '回答済みです';
+                    document.getElementById('submitAnswerBtn').style.backgroundColor = '#6c757d'; 
+                    document.getElementById('submitAnswerBtn').style.cursor = 'not-allowed';
+                    clearInterval(countdownInterval); 
+                }
+
+            })
+            .catch(error => {
+                console.error('Polling Error:', error);
+                clearInterval(pollingInterval);
+                clearInterval(countdownInterval);
+            });
+        }
+
+        // フォームが送信されたときにAjaxで送信し、成功したら適切なページへリダイレクト
+        document.getElementById('answerForm').addEventListener('submit', function(event) {
+            event.preventDefault(); 
+
+            const form = event.target;
+            const formData = new FormData(form);
+
+            console.log("Attempting to submit answer via Fetch API...");
+
+            fetch(form.action, { 
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrf_token,
+                    'X-Requested-With': 'XMLHttpRequest', 
+                },
+                body: formData,
+            })
+            .then(response => {
+                console.log("Submit Fetch response received. Status:", response.status, response.statusText);
+                if (!response.ok) {
+                     console.error('Submit Network response was not ok:', response.status, response.statusText);
+                    return response.json().then(err => { 
+                        throw new Error(err.message || '回答の送信に失敗しました。'); 
+                    }).catch(() => {
+                        return response.text().then(text => { throw new Error(`回答の送信に失敗しました。サーバー応答: ${response.status} ${response.statusText}\n${text.substring(0, 100)}...`); });
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('回答送信リクエスト成功:', data);
+                document.getElementById('id_choice').disabled = true;
+                document.getElementById('id_text').disabled = true;
+                document.getElementById('submitAnswerBtn').disabled = true;
+                document.getElementById('submitAnswerBtn').innerText = '回答を送信しました';
+                document.getElementById('submitAnswerBtn').style.backgroundColor = '#28a745'; 
+                
+                clearInterval(pollingInterval); 
+                clearInterval(countdownInterval); 
+
+                // ★サーバーから返されたsession_statusに基づいてリダイレクト先を決定
+                // all_answeredがtrueならpresent、そうでなければwait
+                if (data.session_status === 'presenting' || data.all_answered) { // ★all_answeredも条件に追加
+                    console.log("Submit success: All answered. Redirecting to present page:", presentPageUrl);
+                    window.location.href = presentPageUrl;
+                } else {
+                    console.log("Submit success: Not all answered yet. Redirecting to wait page:", waitPageUrl);
+                    window.location.href = waitPageUrl;
+                }
+            })
+            .catch(error => {
+                console.error('回答送信エラー (Catch block):', error);
+                alert('回答の送信中にエラーが発生しました。もう一度お試しください。\n' + error.message);
+            });
+        });
+
+        // 5秒ごとにポーリングを開始
+        const pollingInterval = setInterval(pollSessionStatus, 5000); 
+
+        // ページを離れるときにポーリングとカウントダウンを停止
+        window.addEventListener('beforeunload', () => {
+            clearInterval(pollingInterval);
+            clearInterval(countdownInterval);
+        });
+
+        // 初回ロード時に一度ポーリングを実行
+        pollSessionStatus();
+
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

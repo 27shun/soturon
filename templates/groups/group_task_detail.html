@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク詳細: {{ task.title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 700px;
+            margin-top: 50px;
+            margin-bottom: 50px;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #fd7e14; /* オレンジ色 */
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .card-detail {
+            border: none;
+            box-shadow: none;
+        }
+        .card-detail .card-body {
+            padding: 0;
+        }
+        .list-group-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .list-group-item:last-child {
+            border-bottom: none;
+        }
+        .list-group-item strong {
+            color: #343a40;
+            flex-shrink: 0;
+            width: 120px; /* ラベルの幅を固定 */
+        }
+        .list-group-item span, .list-group-item p {
+            flex-grow: 1;
+            color: #6c757d;
+            margin-left: 20px;
+            word-break: break-word; /* 長い説明文の折り返し */
+        }
+        .status-badge {
+            font-size: 0.9em;
+            padding: 0.4em 0.8em;
+            border-radius: 0.3em;
+        }
+        .status-completed {
+            background-color: #28a745; /* 緑 */
+            color: white;
+        }
+        .status-pending {
+            background-color: #ffc107; /* 黄色 */
+            color: #212529;
+        }
+        .btn-group-bottom {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+        .btn-group-bottom .btn {
+            flex-grow: 1;
+            max-width: 150px;
+        }
+        .group-info-header {
+            background-color: #e9ecef;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #495057;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>グループタスク詳細</h2>
+
+        {% if messages %}
+            <div class="messages mb-3">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="group-info-header">
+            グループ: <strong>{{ group.name }}</strong>
+        </div>
+
+        <div class="card card-detail">
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex align-items-baseline">
+                        <strong>タスク名:</strong>
+                        <span>{{ task.title }}</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-baseline">
+                        <strong>詳細:</strong>
+                        <p class="mb-0">{{ task.description|default:"説明はありません。" }}</p>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>担当者:</strong>
+                        <span>{{ task.assigned_to.username|default:"未割り当て" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>期限:</strong>
+                        <span>{{ task.due_date|date:"Y/m/d"|default:"未設定" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>ステータス:</strong>
+                        <span>
+                            {% if task.completed %}
+                                <span class="badge status-completed">完了済み</span>
+                            {% else %}
+                                <span class="badge status-pending">未完了</span>
+                            {% endif %}
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>作成者:</strong>
+                        <span>{{ task.created_by.username|default:"不明" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>作成日時:</strong>
+                        <span>{{ task.created_at|date:"Y/m/d H:i" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex align-items-center">
+                        <strong>最終更新:</strong>
+                        <span>{{ task.updated_at|date:"Y/m/d H:i" }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="btn-group-bottom">
+            <a href="{% url 'group_task_list' group.id %}" class="btn btn-secondary">タスク一覧に戻る</a>
+            <a href="{% url 'group_task_update' group.id task.pk %}" class="btn btn-warning">編集</a>
+            <form action="{% url 'group_task_delete' group.id task.pk %}" method="post" class="d-inline delete-form">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">削除</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 削除ボタンの確認ダイアログ
+            document.querySelectorAll('.delete-form').forEach(form => {
+                form.addEventListener('submit', function(event) {
+                    if (!confirm('本当にこのタスクを削除しますか？')) {
+                        event.preventDefault();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>回答待機中</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* 上部に寄せる */
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px; /* 上部のパディングを増やす */
+            box-sizing: border-box;
+        }
+        .container-card {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        h2 {
+            color: #343a40;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .topic-display {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 1.1rem;
+            color: #495057;
+            font-weight: bold;
+        }
+        h3 {
+            color: #343a40;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 5px;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 25px;
+        }
+        ul li {
+            background-color: #f1f3f5;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1rem;
+            color: #343a40;
+        }
+        .return-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .return-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-card">
+        <h2>{{ session.group.name }} アイスブレイク 回答待機中</h2>
+        <div class="topic-display">
+            お題: <span id="currentTopic">{{ session.topic.content }}</span>
+        </div>
+
+        <h3>回答状況</h3>
+        <ul id="answeredStatusList">
+            {% for member in group_members %}
+                <li>
+                    {{ member.username }}
+                    {% if member.id in answered_users %}
+                        <span style="color:green;">✔ 回答済み</span>
+                    {% else %}
+                        <span style="color:gray;">未回答</span>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+        <p class="text-center text-muted">全員の回答が揃うまでお待ちください。</p>
+        
+        <p><a href="{% url 'group_detail' group_id=session.group.id %}" class="return-link">グループホームに戻る</a></p>
+    </div>
+
+    <script>
+        const sessionId = "{{ session.id }}";
+        const getStatusUrl = "{% url 'get_session_status' session_id=session.id %}";
+        const presentPageUrl = "{% url 'present' session_id=session.id %}";
+
+        const answeredStatusList = document.getElementById('answeredStatusList');
+
+        // Ajaxでセッションステータスをポーリングする関数
+        function pollSessionStatus() {
+            fetch(getStatusUrl, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Session Status Data (Wait):', data);
+
+                // 回答状況のUIを更新
+                answeredStatusList.innerHTML = ''; // 一度クリア
+                data.answered_status.forEach(member => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `${member.username} ${member.answered ? '<span style="color:green;">✔ 回答済み</span>' : '<span style="color:gray;">未回答</span>'}`;
+                    answeredStatusList.appendChild(li);
+                });
+
+                // セッションのステータスが 'presenting' に変わったら 'present' ページにリダイレクト
+                if (data.status === 'presenting') {
+                    console.log('Session status changed to presenting. Redirecting to present page...');
+                    clearInterval(pollingInterval); // ポーリング停止
+                    window.location.href = presentPageUrl;
+                }
+
+                // お題が更新された場合（もし待機中に更新される可能性があるなら）
+                if (document.getElementById('currentTopic').innerText !== data.topic_content) {
+                    document.getElementById('currentTopic').innerText = data.topic_content;
+                }
+
+            })
+            .catch(error => {
+                console.error('Error fetching session status:', error);
+                // エラー時はポーリングを停止することも検討
+                clearInterval(pollingInterval);
+            });
+        }
+
+        // 5秒ごとにポーリングを開始
+        const pollingInterval = setInterval(pollSessionStatus, 5000); // 5000ミリ秒 = 5秒
+
+        // ページを離れるときにポーリングを停止
+        window.addEventListener('beforeunload', () => {
+            clearInterval(pollingInterval);
+        });
+
+        // 初回ロード時に一度ポーリングを実行
+        pollSessionStatus();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
