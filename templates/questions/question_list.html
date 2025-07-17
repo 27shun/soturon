@@ -1,0 +1,96 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ group.name }} の質問一覧</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+
+    .question-card {
+      position: relative;
+      transition: box-shadow 0.3s ease-in-out;
+    }
+
+    .question-card:hover {
+      box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1);
+    }
+
+    .badge-solved {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+    }
+
+    .question-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #212529;
+      margin-bottom: 0.3rem;
+    }
+
+    .question-meta {
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+
+    .no-questions {
+      color: #999;
+      font-size: 1rem;
+      text-align: center;
+      margin-top: 2rem;
+    }
+
+    @media (max-width: 576px) {
+      .question-title {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="container my-5">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="text-primary mb-0">{{ group.name }} の質問一覧</h2>
+    <a href="{% url 'question_create' group.id %}" class="btn btn-success">＋ 質問を投稿</a>
+  </div>
+
+  <form method="get" class="mb-4">
+    <div class="input-group">
+      <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="キーワード検索">
+      <button type="submit" class="btn btn-outline-primary">検索</button>
+    </div>
+  </form>
+
+  {% if questions %}
+    <div class="row g-3">
+      {% for q in questions %}
+        <div class="col-12">
+          <div class="card question-card p-3">
+            <a href="{% url 'question_detail' group.id q.id %}" class="stretched-link text-decoration-none"></a>
+            {% if q.solved %}
+              <span class="badge bg-success badge-solved">解決済</span>
+            {% endif %}
+            <div class="question-title">{{ q.title|truncatechars:60 }}</div>
+            <div class="question-meta">
+              投稿日: {{ q.created_at|date:"Y/m/d H:i" }} ｜ 投稿者: {{ q.posted_by.username }}
+            </div>
+          </div>
+        </div>
+            <div class="btn-bottom-group">
+                <a href="{% url 'group_detail' group.id %}" class="btn btn-outline-secondary">グループ詳細に戻る</a>
+            </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="no-questions">質問はまだ投稿されていません。</p>
+  {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

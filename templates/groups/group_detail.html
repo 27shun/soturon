@@ -71,6 +71,10 @@
         <a href="{% url 'group_goals_edit' group.id %}" class="btn btn-outline-warning">目標編集</a>
         <a href="{% url 'assign_roles' group.id %}" class="btn btn-outline-secondary">役割</a>
         <a href="{% url 'group_task_list' group.id %}" class="btn btn-outline-primary">タスク</a>
+        <a href="{% url 'question_list' group.id %}" class="btn btn-outline-primary">質問一覧を見る</a>
+        <a href="{% url 'group_event_list' group.id %}" class="btn btn-outline-primary">グループの予定を見る</a>
+
+
         {% if current_user_memo_this_week %}
             <a href="{% url 'group_memo_detail' group.id current_user_memo_this_week.pk %}" class="btn btn-outline-success">メモを見る</a>
         {% else %}
