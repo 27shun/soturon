@@ -15,4 +15,12 @@ urlpatterns = [
     path('tasks/<int:pk>/update/', views.personal_task_update, name='personal_task_update'),
     path('tasks/<int:pk>/delete/', views.personal_task_delete, name='personal_task_delete'),
     path('tasks/<int:pk>/toggle-complete/', views.personal_task_toggle_complete, name='personal_task_toggle_complete'),
+
+    path('events/',views.personal_event_list,   name='personal_event_list'),
+    path('events/create/',views.personal_event_create, name='personal_event_create'),
+    path('events/<int:pk>/edit/',views.personal_event_update, name='personal_event_update'),
+    path('events/<int:pk>/delete/',views.personal_event_delete, name='personal_event_delete'),
+
+    path('google/auth/', views.google_auth_start, name='google_auth_start'),
+    path('google/callback/', views.google_auth_callback, name='google_auth_callback'),
 ]

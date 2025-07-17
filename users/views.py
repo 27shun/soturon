@@ -1,15 +1,20 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from .forms import SignUpForm, PersonalTaskForm
+from .forms import SignUpForm, PersonalTaskForm, PersonalEventForm
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404
-from .models import PersonalTask
+from .models import PersonalTask, PersonalEvent
 from django.contrib.auth.decorators import login_required
 from groups.models import Group
 import json
+import os
+from django.conf import settings
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
+from .models import UserGoogleCredential
 
 
 def register(request):
@@ -127,3 +132,88 @@ def personal_task_toggle_complete(request, pk):
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({'status': 'success', 'completed': task.completed})
     return redirect('personal_task_list')
+
+
+@login_required
+def personal_event_list(request):
+    events = PersonalEvent.objects.filter(user=request.user).order_by('start_time')
+    return render(request, 'users/personal_event_list.html', {
+        'events': events
+    })
+
+@login_required
+def personal_event_create(request):
+    if request.method == 'POST':
+        form = PersonalEventForm(request.POST)
+        if form.is_valid():
+            event = form.save(commit=False)
+            event.user = request.user
+            event.save()
+            messages.success(request, '予定を登録しました。')
+            return redirect('personal_event_list')
+    else:
+        form = PersonalEventForm()
+    return render(request, 'users/personal_event_form.html', {
+        'form': form,
+        'form_type': 'create'
+    })
+
+@login_required
+def personal_event_update(request, pk):
+    event = get_object_or_404(PersonalEvent, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = PersonalEventForm(request.POST, instance=event)
+        if form.is_valid():
+            form.save()
+            messages.success(request, '予定を更新しました。')
+            return redirect('personal_event_list')
+    else:
+        form = PersonalEventForm(instance=event)
+    return render(request, 'users/personal_event_form.html', {
+        'form': form,
+        'form_type': 'update'
+    })
+
+@login_required
+def personal_event_delete(request, pk):
+    event = get_object_or_404(PersonalEvent, pk=pk, user=request.user)
+    event.delete()
+    messages.success(request, '予定を削除しました。')
+    return redirect('personal_event_list')
+
+@login_required
+def google_auth_start(request):
+    flow = Flow.from_client_secrets_file(
+        os.path.join(settings.BASE_DIR, 'credentials/credentials.json'),
+        scopes=['https://www.googleapis.com/auth/calendar.readonly'],
+        redirect_uri=request.build_absolute_uri('/users/google/callback/')
+    )
+    authorization_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        prompt='consent'
+    )
+    request.session['google_auth_state'] = state
+    return redirect(authorization_url)
+
+
+@login_required
+def google_auth_callback(request):
+    state = request.session.get('google_auth_state')
+    flow = Flow.from_client_secrets_file(
+        os.path.join(settings.BASE_DIR, 'credentials/credentials.json'),
+        scopes=['https://www.googleapis.com/auth/calendar.readonly'],
+        state=state,
+        redirect_uri='http://localhost:8000/users/google/callback/'
+    )
+    flow.fetch_token(authorization_response=request.build_absolute_uri())
+
+    credentials = flow.credentials
+    creds_json = credentials.to_json()
+
+    UserGoogleCredential.objects.update_or_create(
+        user=request.user,
+        defaults={'token_json': creds_json}
+    )
+
+    return redirect('home')  # 認証後にリダイレクトするページ（必要に応じて変更）
